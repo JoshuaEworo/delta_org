@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delta — Your Local AI Co-Pilot</title>
+
+  <!-- Enable JS-gated animations (no-JS stays static) -->
+  <script>
+    document.documentElement.classList.add('js')
+  </script>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind config -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0A0A0A',
+            panel: '#111111',
+            text: '#EDEDED',
+            muted: '#9A9A9A',
+            accent: '#FF3E3E'
+          },
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+            display: ['Space Grotesk', 'Inter', 'sans-serif']
+          },
+          letterSpacing: {
+            tightest: '-0.04em'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Icons -->
+  <script src="https://unpkg.com/feather-icons"></script>
+
+  <!-- Subtle motion + interactivity (no layout changes) -->
+  <style>
+    /* Smooth anchor scrolling (respects reduced-motion) */
+    html { scroll-behavior: smooth; }
+
+    /* Reveal-on-scroll: only active when JS is enabled */
+    .js [data-reveal] {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0);
+      transition:
+        opacity 650ms cubic-bezier(.2, .8, .2, 1),
+        transform 650ms cubic-bezier(.2, .8, .2, 1);
+      transition-delay: var(--reveal-delay, 0ms);
+      will-change: opacity, transform;
+    }
+    .js [data-reveal].is-visible {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
+    /* Micro-interactions */
+    .delta-navlink {
+      position: relative;
+      display: inline-block;
+      transition: color 150ms ease;
+    }
+    .delta-navlink::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -6px;
+      height: 1px;
+      background: rgba(237, 237, 237, 0.55);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 180ms ease;
+    }
+    .delta-navlink:hover::after,
+    .delta-navlink:focus-visible::after {
+      transform: scaleX(1);
+    }
+
+    .delta-btn {
+      transition: transform 160ms ease, opacity 160ms ease, box-shadow 220ms ease;
+      will-change: transform;
+    }
+    .delta-btn:hover {
+      transform: translate3d(0, -1px, 0);
+      box-shadow: 0 10px 30px rgba(255, 62, 62, 0.10);
+    }
+    .delta-btn:active { transform: translate3d(0, 0, 0); }
+    .delta-btn i {
+      transition: transform 180ms ease;
+      will-change: transform;
+    }
+    .delta-btn:hover i { transform: translate3d(2px, 0, 0); }
+
+    .delta-card {
+      transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+      will-change: transform;
+    }
+    .delta-card:hover {
+      transform: translate3d(0, -2px, 0);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .delta-pulse {
+      animation: deltaPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes deltaPulse {
+      0%, 100% { transform: scale(1); opacity: 0.65; }
+      50% { transform: scale(1.25); opacity: 1; }
+    }
+
+    .delta-rotator {
+      display: inline-block;
+      will-change: transform, opacity;
+      transform-origin: 50% 60%;
+    }
+    .delta-rotator.flip-out {
+      animation: deltaFlipOut 220ms ease forwards;
+    }
+    .delta-rotator.flip-in {
+      animation: deltaFlipIn 260ms ease forwards;
+    }
+    @keyframes deltaFlipOut {
+      to { opacity: 0; transform: translate3d(0, -2px, 0) rotateX(55deg); }
+    }
+    @keyframes deltaFlipIn {
+      from { opacity: 0; transform: translate3d(0, 2px, 0) rotateX(-55deg); }
+      to { opacity: 1; transform: translate3d(0, 0, 0) rotateX(0deg); }
+    }
+
+    /* Accessibility: reduce motion everywhere */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .js [data-reveal] {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+      }
+      .delta-btn, .delta-btn i, .delta-card, .delta-navlink, .delta-navlink::after {
+        transition: none !important;
+      }
+      .delta-pulse { animation: none !important; }
+      .delta-rotator.flip-out,
+      .delta-rotator.flip-in {
+        animation: none !important;
+      }
+      .delta-btn:hover, .delta-card:hover { transform: none !important; }
+    }
+  </style>
+</head>
+
+<body class="bg-bg text-text antialiased">
+
+  <!-- NAV -->
+  <header class="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between" data-reveal style="--reveal-delay: 0ms;">
+    <div class="flex items-center gap-3">
+      <img
+        src="delta-logo-solo.png"
+        alt="Delta logo"
+        class="h-8 w-auto"
+      />
+      <span class="font-display text-lg tracking-tightest">Delta</span>
+    </div>
+
+    <nav class="hidden md:flex items-center gap-8 text-sm text-muted">
+      <a href="#product" class="delta-navlink hover:text-text transition">Product</a>
+      <a href="#architecture" class="delta-navlink hover:text-text transition">Architecture</a>
+      <a href="#usecases" class="delta-navlink hover:text-text transition">Use cases</a>
+      <a href="#contact" class="delta-navlink hover:text-text transition">Contact</a>
+    </nav>
+  </header>
+
+  <!-- HERO -->
+  <section class="max-w-7xl mx-auto px-6 pt-24 pb-32">
+    <div class="max-w-4xl" data-reveal style="--reveal-delay: 80ms;">
+      <h1 class="font-display text-5xl md:text-6xl leading-tight tracking-tightest">
+        A local AI co-pilot<br />
+        built to act.
+      </h1>
+
+      <p class="mt-6 text-lg text-muted max-w-2xl">
+        Delta is an on-device AI system that understands context, invokes tools,
+        and executes real work across your machine. No dashboards. No noise.
+        Just an agent that operates where you do.
+      </p>
+
+      <div class="mt-10 flex items-center gap-6">
+        <a
+          href="#contact"
+          class="delta-btn inline-flex items-center gap-2 px-6 py-3 bg-accent text-black font-medium text-sm rounded-md hover:opacity-90 transition"
+        >
+          Request access
+          <i data-feather="arrow-right"></i>
+        </a>
+
+        <span class="text-sm text-muted">
+          Local-first · Developer-controlled · Private by design
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCT OVERVIEW -->
+  <section id="product" class="border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-28 grid md:grid-cols-2 gap-16">
+      <div data-reveal style="--reveal-delay: 0ms;">
+        <h2 class="font-display text-3xl tracking-tightest">
+          Not another chatbot.
+        </h2>
+        <p class="mt-4 text-muted">
+          Delta is architected as an agent, not a UI novelty. It maintains
+          internal state, understands intent, and calls tools with precision.
+          You don’t prompt it endlessly. You direct it.
+        </p>
+      </div>
+
+      <div class="delta-card bg-panel border border-white/5 rounded-xl p-8 space-y-6" data-reveal style="--reveal-delay: 120ms;">
+        <div class="flex items-start gap-4">
+          <i data-feather="cpu" class="text-accent"></i>
+          <div>
+            <h3 class="font-medium">Local execution</h3>
+            <p class="text-sm text-muted">
+              Runs on your machine or private infrastructure. No external
+              dependency chains.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-4">
+          <i data-feather="tool" class="text-accent"></i>
+          <div>
+            <h3 class="font-medium">Tool-native</h3>
+            <p class="text-sm text-muted">
+              Functions are first-class. Delta reasons about actions, not text.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-4">
+          <i data-feather="shield" class="text-accent"></i>
+          <div>
+            <h3 class="font-medium">Private by default</h3>
+            <p class="text-sm text-muted">
+              Your data stays where your code lives.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ADVANCED UI SHOWCASE -->
+<section class="border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-28">
+      
+      <div class="max-w-3xl mb-20" data-reveal style="--reveal-delay: 0ms;">
+        <h2 class="font-display text-3xl tracking-tightest">
+          Delta operates where failures actually happen.
+        </h2>
+        <p class="mt-4 text-muted">
+          Complex systems rarely fail loudly. Delta is built to notice
+          the quiet inconsistencies engineers miss.
+        </p>
+      </div>
+  
+      <!-- STAGGERED GRID -->
+      <div class="grid md:grid-cols-2 gap-16 items-start">
+  
+        <!-- LEFT COLUMN -->
+        <div class="space-y-16">
+  
+          <!-- SCENARIO 1: ARCHITECTURE FAILURE -->
+          <div class="delta-card bg-panel border border-white/5 rounded-2xl overflow-hidden" data-reveal style="--reveal-delay: 60ms;">
+            <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <img src="delta-logo-solo.png" class="h-6 w-auto" />
+                <span class="font-display text-lg">Delta</span>
+              </div>
+              <span class="text-xs font-mono text-muted">Incident analysis</span>
+            </div>
+  
+            <div class="p-6 space-y-6 text-sm">
+  
+              <!-- User -->
+              <div class="flex justify-end">
+                <div class="max-w-[85%] bg-[#151515] border border-white/5 rounded-xl px-4 py-3">
+                  Our API latency spikes only under load. Logs look clean.
+                  Can you figure out what’s going on?
+                </div>
+              </div>
+  
+              <!-- Assistant events -->
+              <div class="max-w-[85%] space-y-3">
+  
+                <!-- Thinking -->
+                <div class="bg-[#141414] border-l-2 border-white/10 rounded-lg">
+                  <div class="px-3 py-2 text-xs text-muted">
+                    Thinking · correlating metrics, configs, and deploy history
+                  </div>
+                </div>
+  
+                <!-- Tool call -->
+                <div class="bg-[#141414] border-l-2 border-white/30 rounded-lg px-3 py-2 font-mono text-xs">
+                  <div class="font-semibold mb-1">read_file()</div>
+                  <div class="text-muted">path: infra/nginx.conf</div>
+                </div>
+  
+                <!-- Tool call -->
+                <div class="bg-[#141414] border-l-2 border-white/30 rounded-lg px-3 py-2 font-mono text-xs">
+                  <div class="font-semibold mb-1">read_file()</div>
+                  <div class="text-muted">path: services/api/Dockerfile</div>
+                </div>
+  
+                <!-- Tool result -->
+                <div class="bg-[#141414] border-l-2 border-white/30 rounded-lg px-3 py-2 font-mono text-xs">
+                  <div class="text-muted mb-1">Observation</div>
+                  <div>
+                    worker_processes auto;<br />
+                    keepalive_timeout 5s;
+                  </div>
+                </div>
+  
+                <!-- Final answer -->
+                <div class="bg-[#151515] border border-white/5 rounded-xl px-4 py-3 leading-relaxed">
+                  The latency spike isn’t coming from application code.
+                  Under load, Nginx is aggressively closing keep-alive
+                  connections while your Node containers are CPU-throttled.
+                  This causes connection churn that only appears at scale.
+                </div>
+  
+              </div>
+            </div>
+          </div>
+  
+          <!-- SCENARIO 2: DATA INCONSISTENCY -->
+          <div class="delta-card bg-panel border border-white/5 rounded-2xl overflow-hidden" data-reveal style="--reveal-delay: 140ms;">
+            <div class="px-6 py-4 border-b border-white/5 text-xs font-mono text-muted">
+              Data integrity check
+            </div>
+  
+            <div class="p-6 space-y-5 text-sm">
+              <div class="bg-[#141414] border border-white/5 rounded-lg px-4 py-3">
+                Revenue reports don’t match between our dashboard and Stripe exports.
+              </div>
+  
+              <div class="bg-[#141414] border-l-2 border-white/30 rounded-lg px-3 py-2 font-mono text-xs">
+                <div class="font-semibold mb-1">execute_python()</div>
+                <div class="text-muted">Comparing timezone normalization</div>
+              </div>
+  
+              <div class="bg-[#151515] border border-white/5 rounded-xl px-4 py-3">
+                The discrepancy comes from invoices generated near midnight UTC.
+                One pipeline truncates dates pre-conversion. The other does not.
+                Totals diverge silently over time.
+              </div>
+            </div>
+          </div>
+  
+        </div>
+  
+        <!-- RIGHT COLUMN -->
+        <div class="space-y-16">
+  
+          <!-- VOICE MODE -->
+          <div class="delta-card bg-panel border border-white/5 rounded-2xl overflow-hidden" data-reveal style="--reveal-delay: 90ms;">
+            <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+              <span class="font-display text-lg">Voice mode</span>
+              <span class="text-xs font-mono text-muted">Active</span>
+            </div>
+  
+            <div class="p-6 space-y-4 text-sm">
+  
+              <div class="flex items-center gap-3 text-muted text-xs">
+                <span class="delta-pulse h-2 w-2 rounded-full bg-green-500"></span>
+                Listening
+              </div>
+  
+              <div class="bg-[#141414] border border-white/5 rounded-lg px-4 py-3">
+                “Why did the deployment rollback even though tests passed?”
+              </div>
+  
+              <div class="bg-[#141414] border-l-2 border-white/30 rounded-lg px-3 py-2 font-mono text-xs">
+                <div class="font-semibold mb-1">search_logs()</div>
+                <div class="text-muted">window: last 30m</div>
+              </div>
+  
+              <div class="bg-[#151515] border border-white/5 rounded-xl px-4 py-3 leading-relaxed">
+                The rollback was triggered by a health-check timeout, not test
+                failures. The new build increased cold-start time by 800ms,
+                exceeding your load balancer threshold.
+              </div>
+  
+            </div>
+          </div>
+  
+          <!-- SYSTEM TRACE -->
+          <div class="delta-card bg-panel border border-white/5 rounded-2xl overflow-hidden" data-reveal style="--reveal-delay: 170ms;">
+            <div class="px-6 py-4 border-b border-white/5 text-xs font-mono text-muted">
+              Internal trace
+            </div>
+  
+            <div class="p-6 font-mono text-xs space-y-2 text-muted">
+              <div>agent.plan → diagnose_latency</div>
+              <div>tool.read_file → nginx.conf</div>
+              <div>tool.read_file → Dockerfile</div>
+              <div>agent.infer → connection churn under CPU throttle</div>
+              <div class="text-white">agent.respond → root cause identified</div>
+            </div>
+          </div>
+  
+        </div>
+      </div>
+    </div>
+  </section>
+  
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture" class="border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-28">
+      <div class="max-w-3xl" data-reveal style="--reveal-delay: 0ms;">
+        <h2 class="font-display text-3xl tracking-tightest">
+          Designed like infrastructure.
+        </h2>
+        <p class="mt-4 text-muted">
+          Delta is modular, inspectable, and deterministic where it matters.
+          You can trace decisions, instrument behavior, and extend capabilities
+          without fighting abstractions.
+        </p>
+      </div>
+
+      <div class="mt-16 grid md:grid-cols-3 gap-8">
+        <div class="delta-card bg-panel border border-white/5 rounded-xl p-6" data-reveal style="--reveal-delay: 60ms;">
+          <h4 class="font-medium mb-2">Agent core</h4>
+          <p class="text-sm text-muted">
+            State management, planning, and decision flow.
+          </p>
+        </div>
+
+        <div class="delta-card bg-panel border border-white/5 rounded-xl p-6" data-reveal style="--reveal-delay: 120ms;">
+          <h4 class="font-medium mb-2">Tool layer</h4>
+          <p class="text-sm text-muted">
+            Declarative function metadata with runtime awareness.
+          </p>
+        </div>
+
+        <div class="delta-card bg-panel border border-white/5 rounded-xl p-6" data-reveal style="--reveal-delay: 180ms;">
+          <h4 class="font-medium mb-2">Execution surface</h4>
+          <p class="text-sm text-muted">
+            OS, services, scripts, APIs, and automations.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- USE CASES -->
+  <section id="usecases" class="border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-28">
+      <h2 class="font-display text-3xl tracking-tightest mb-12" data-reveal style="--reveal-delay: 0ms;">
+        Where Delta fits.
+      </h2>
+
+      <div class="grid md:grid-cols-2 gap-10">
+        <div data-reveal style="--reveal-delay: 60ms;">
+          <h4 class="font-medium">Developers</h4>
+          <p class="text-muted text-sm mt-2">
+            Code generation, refactors, system introspection, and workflow
+            automation without cloud lock-in.
+          </p>
+        </div>
+
+        <div data-reveal style="--reveal-delay: 110ms;">
+          <h4 class="font-medium">Founders & operators</h4>
+          <p class="text-muted text-sm mt-2">
+            Automate internal tooling, data movement, and operational tasks
+            with full control.
+          </p>
+        </div>
+
+        <div data-reveal style="--reveal-delay: 160ms;">
+          <h4 class="font-medium">Researchers</h4>
+          <p class="text-muted text-sm mt-2">
+            Experiment with agentic systems locally and reproducibly.
+          </p>
+        </div>
+
+        <div data-reveal style="--reveal-delay: 210ms;">
+          <h4 class="font-medium">Security-sensitive teams</h4>
+          <p class="text-muted text-sm mt-2">
+            Keep proprietary data off third-party inference pipelines.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section id="contact" class="border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-32 text-center">
+      <h2 class="font-display text-4xl tracking-tightest" data-reveal style="--reveal-delay: 0ms;">
+        Build with an agent that respects
+        <span
+          class="delta-rotator"
+          data-rotator
+          data-words='["engineers","operators","developers","builders"]'
+          aria-hidden="true"
+        >engineers</span><span class="sr-only">engineers</span>.
+      </h2>
+
+      <p class="mt-6 text-muted max-w-xl mx-auto" data-reveal style="--reveal-delay: 90ms;">
+        Delta is currently private. Reach out if you’re building something
+        serious and want early access.
+      </p>
+
+      <a
+        href="mailto:eworojoshua@gmail.com"
+        class="delta-btn inline-flex items-center gap-2 mt-10 px-8 py-4 bg-accent text-black font-medium rounded-md hover:opacity-90 transition"
+        data-reveal
+        style="--reveal-delay: 160ms;"
+      >
+        Get in touch
+        <i data-feather="mail"></i>
+      </a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center text-sm text-muted">
+      <span>© Delta</span>
+      <span>Local-first AI</span>
+    </div>
+  </footer>
+
+  <script>
+    feather.replace()
+
+    ;(() => {
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+      const revealEls = Array.from(document.querySelectorAll('[data-reveal]'))
+
+      if (reduceMotion) {
+        for (const el of revealEls) el.classList.add('is-visible')
+        return
+      }
+
+      if (!('IntersectionObserver' in window)) {
+        for (const el of revealEls) el.classList.add('is-visible')
+        return
+      }
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            // Toggle on viewport entry/exit so animations can re-trigger
+            entry.target.classList.toggle('is-visible', entry.isIntersecting)
+          }
+        },
+        {
+          threshold: 0.15,
+          rootMargin: '0px 0px -10% 0px'
+        }
+      )
+
+      for (const el of revealEls) io.observe(el)
+    })()
+
+    ;(() => {
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+      if (reduceMotion) return
+
+      const el = document.querySelector('[data-rotator]')
+      if (!el) return
+
+      let words = []
+      try {
+        words = JSON.parse(el.getAttribute('data-words') || '[]')
+      } catch {
+        words = []
+      }
+      if (!Array.isArray(words) || words.length < 2) return
+
+      let idx = 0
+      const outMs = 220
+      const gapMs = 1700
+
+      const tick = () => {
+        el.classList.remove('flip-in')
+        el.classList.add('flip-out')
+
+        window.setTimeout(() => {
+          idx = (idx + 1) % words.length
+          el.textContent = words[idx]
+          el.classList.remove('flip-out')
+          el.classList.add('flip-in')
+        }, outMs)
+      }
+
+      window.setInterval(tick, outMs + gapMs)
+    })()
+  </script>
+</body>
+</html>
